@@ -32,7 +32,6 @@ jobs:
           delete-branch: true
 
       - name: Check CI status periodically
-        env:
         run: node --experimental-fetch check-pr-status.mjs ${{ github.repository }} ${{ steps.cpr.outputs.pull-request-number }}
 
       - name: Auto-approve the PR
