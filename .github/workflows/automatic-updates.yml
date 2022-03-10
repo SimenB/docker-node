@@ -1,0 +1,46 @@
+name: Automatically update Docker image versions
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          # to access `--experimental-fetch`
+          node-version: '17'
+
+      - name: Run automation script
+        id: updt
+        run: node --experimental-fetch build-automation.mjs
+
+      - name: Create update PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v3
+        with:
+          branch: update-branch
+          base: main
+          commit-message: "Update to ${{ steps.updt.outputs.updated-versions }}"
+          title: "Update to ${{ steps.updt.outputs.updated-versions }}"
+          delete-branch: true
+
+      - name: Check CI status periodically
+        env:
+        run: node --experimental-fetch check-pr-status.mjs ${{ github.repository }} ${{ steps.cpr.outputs.pull-request-number }}
+
+      - name: Auto-approve the PR
+        uses: juliangruber/approve-pull-request-action@v1
+        with:
+          number: ${{ steps.cpr.outputs.pull-request-number }}
+
+      - name: Merge PR
+        uses: juliangruber/merge-pull-request-action@v1
+        with:
+          number: ${{ steps.cpr.outputs.pull-request-number }}
