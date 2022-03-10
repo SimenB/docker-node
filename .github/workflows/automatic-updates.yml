@@ -30,8 +30,13 @@ jobs:
           title: "Update to ${{ steps.updt.outputs.updated-versions }}"
           delete-branch: true
 
-      - name: Check CI status periodically
-        run: node --experimental-fetch check-pr-status.mjs ${{ github.repository }} ${{ steps.cpr.outputs.pull-request-number }}
+      - name: Wait for tests to succeed
+        uses: lewagon/wait-on-check-action@v1.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: build-test
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          wait-interval: 30
 
       - name: Auto-approve the PR
         uses: juliangruber/approve-pull-request-action@v1
