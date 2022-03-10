@@ -12,7 +12,7 @@ export default async function(github, pullRequestNumber) {
 
   for (let t = 0; t < tries; t++) {
     try {
-      const { data } = await github.pulls.get({pull_number: pullRequestNumber})
+      const { data } = await github.rest.pulls.get({pull_number: pullRequestNumber})
 
       console.log(data);
       if (data.mergeable_state === 'clean') {

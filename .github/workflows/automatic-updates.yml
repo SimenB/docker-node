@@ -34,9 +34,6 @@ jobs:
         with:
           script: |
             const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/check-pr-status.mjs`);
-            console.log(github);
-            console.log(github.pull);
-            console.log(github.pulls);
             await script(github, ${{ steps.cpr.outputs.pull-request-number }});
 
       - name: Auto-approve the PR
