@@ -25,6 +25,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           branch: update-branch
           base: main
           commit-message: "Update to ${{ steps.updt.outputs.updated-versions }}"
@@ -37,9 +38,11 @@ jobs:
       - name: Auto-approve the PR
         uses: juliangruber/approve-pull-request-action@v1
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           number: ${{ steps.cpr.outputs.pull-request-number }}
 
       - name: Merge PR
         uses: juliangruber/merge-pull-request-action@v1
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           number: ${{ steps.cpr.outputs.pull-request-number }}
