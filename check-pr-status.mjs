@@ -7,12 +7,12 @@ import { setTimeout } from 'timers/promises';
 const tries = 10;
 const retryDelay = 30000;
 
-export default async function(github, pullRequestNumber) {
+export default async function(github, owner, repo, pull_number) {
   await setTimeout(retryDelay);
 
   for (let t = 0; t < tries; t++) {
     try {
-      const { data } = await github.rest.pulls.get({pull_number: pullRequestNumber})
+      const { data } = await github.rest.pulls.get({owner, repo, pull_number})
 
       console.log(data);
       if (data.mergeable_state === 'clean') {
