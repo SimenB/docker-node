@@ -10,14 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
-        with:
-          # to access `--experimental-fetch`
-          node-version: '17'
-
       - name: Run automation script
+        uses: actions/github-script@v6
         id: updt
-        run: node --experimental-fetch build-automation.mjs
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/build-automation.mjs`)
+            await script(github);
 
       - name: Create update PR
         id: cpr
