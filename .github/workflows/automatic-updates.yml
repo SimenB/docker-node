@@ -23,7 +23,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: update-branch
           base: main
           commit-message: "Update to ${{ steps.updt.outputs.updated-versions }}"
@@ -36,7 +36,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           running-workflow-name: wait-for-check-regexp
           check-regexp: 'build \(.*\)'
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           wait-interval: 30
 
       - name: Auto-approve the PR
