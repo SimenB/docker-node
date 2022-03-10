@@ -14,7 +14,6 @@ jobs:
         uses: actions/github-script@v6
         id: updt
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/build-automation.mjs`)
             await script(github);
