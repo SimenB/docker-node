@@ -25,7 +25,7 @@ const checkIfThereAreNewVersions = async (github) => {
       latestSupportedVersions[supportedVersion] = { fullVersion: fullVersionOutput.trim() };
     }
 
-    const availableVersionsJson = await github.request('https://nodejs.org/download/release/index.json');
+    const { data: availableVersionsJson } = await github.request('https://nodejs.org/download/release/index.json');
 
     // filter only more recent versions of availableVersionsJson for each major version in latestSupportedVersions' keys
     // e.g. if latestSupportedVersions = { "12": "12.22.10", "14": "14.19.0", "16": "16.14.0", "17": "17.5.0" }
@@ -59,7 +59,7 @@ const checkIfThereAreNewVersions = async (github) => {
 // and returns relevant information
 const checkForMuslVersionsAndSecurityReleases = async (github, versions) => {
   try {
-    const unofficialBuildsIndexText = await github.request('https://unofficial-builds.nodejs.org/download/release/index.json');
+    const { data: unofficialBuildsIndexText } = await github.request('https://unofficial-builds.nodejs.org/download/release/index.json');
 
     for (let version of Object.keys(versions)) {
       const unofficialBuildsWebsiteText = await github.request(`https://unofficial-builds.nodejs.org/download/release/v${versions[version].fullVersion}`);
