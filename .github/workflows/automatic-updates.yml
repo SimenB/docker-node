@@ -15,7 +15,7 @@ jobs:
         id: updt
         with:
           script: |
-            const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/build-automation.mjs`)
+            const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/build-automation.mjs`);
             await script(github);
 
       - name: Create update PR
@@ -33,8 +33,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/check-pr-status.mjs`)
-            await script(github, ${{ steps.cpr.outputs.pull-request-number);
+            const { default: script } = await import(`${process.env.GITHUB_WORKSPACE}/check-pr-status.mjs`);
+            await script(github, ${{ steps.cpr.outputs.pull-request-number }});
 
       - name: Auto-approve the PR
         uses: juliangruber/approve-pull-request-action@v1
