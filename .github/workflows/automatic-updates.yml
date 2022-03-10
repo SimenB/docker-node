@@ -1,13 +1,13 @@
 name: Automatically update Docker image versions
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "*/15 * * * *"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'nodejs'
 
     steps:
       - uses: actions/checkout@v3
@@ -25,28 +25,22 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
-          token: ${{ secrets.GH_API_TOKEN }}
           branch: update-branch
           base: main
           commit-message: "Update to ${{ steps.updt.outputs.updated-versions }}"
           title: "Update to ${{ steps.updt.outputs.updated-versions }}"
           delete-branch: true
-          team-reviewers: |
-            @nodejs/docker
 
       - name: Check CI status periodically
         env:
-          GH_API_TOKEN: ${{ secrets.GH_API_TOKEN }}
         run: node --experimental-fetch check-pr-status.mjs ${{ github.repository }} ${{ steps.cpr.outputs.pull-request-number }}
 
       - name: Auto-approve the PR
         uses: juliangruber/approve-pull-request-action@v1
         with:
-          github-token: ${{ secrets.GH_API_TOKEN }}
           number: ${{ steps.cpr.outputs.pull-request-number }}
 
       - name: Merge PR
         uses: juliangruber/merge-pull-request-action@v1
         with:
-          github-token: ${{ secrets.GH_API_TOKEN }}
           number: ${{ steps.cpr.outputs.pull-request-number }}
