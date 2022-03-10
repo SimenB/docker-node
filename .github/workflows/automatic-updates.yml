@@ -29,6 +29,10 @@ jobs:
           title: "Update to ${{ steps.updt.outputs.updated-versions }}"
           delete-branch: true
 
+      - name: Dump GitHub context
+        id: github_context_step
+        run: echo '${{ toJSON(github) }}'
+
       - name: Check CI status periodically
         uses: actions/github-script@v6
         with:
