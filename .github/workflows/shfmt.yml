@@ -3,7 +3,9 @@ name: Check Shell scripts
 on:
   pull_request:
     paths:
-      - "**/*.sh"
+      - '**/*.sh'
+      - .github/workflows/shfmt.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,12 +14,17 @@ jobs:
   shfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: docker run -v "$(pwd)":/sh -w /sh peterdavehello/shfmt:2.6.3 shfmt -sr -i 2 -l -w -ci .
-      - run: git diff --color --exit-code
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install shfmt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shfmt
+      - name: Run shfmt
+        run: shfmt -sr -i 2 -l -w -ci -d .
 
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: shellcheck *.sh
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run ShellCheck
+        uses: bewuethr/shellcheck-action@80bac2daa9fcf95d648200a793d00060857e6dc4 # v2.3.0

@@ -1,0 +1,28 @@
+{
+  "name": "docker-node",
+  "description": "Build official Docker images for Node.js",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node build-automation.mjs",
+    "format:toc": "doctoc --update-only .",
+    "format:toc:check": "doctoc --update-only --dryrun .",
+    "format:prettier": "prettier --write .",
+    "format:prettier:check": "prettier --check .",
+    "format:javascript": "eslint --fix",
+    "format:javascript:check": "eslint",
+    "lint": "run-s format:toc:check format:prettier:check format:javascript:check",
+    "lint:fix": "run-s format:toc format:prettier format:javascript",
+    "check:markdown-links": "find *.md docs/*.md -print0 | xargs -0 -n1 markdown-link-check -c markdown_link_check_config.json"
+  },
+  "devDependencies": {
+    "@actions/core": "3.0.1",
+    "@eslint/js": "10.0.1",
+    "doctoc": "2.5.0",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "markdown-link-check": "3.15.0",
+    "npm-run-all2": "9.0.4",
+    "prettier": "3.9.10"
+  }
+}

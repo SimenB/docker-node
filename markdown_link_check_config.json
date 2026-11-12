@@ -1,12 +1,25 @@
 {
-  "httpHeaders": [
+  "ignorePatterns": [
     {
-      "urls": [
-        "https://docs.github.com"
-      ],
-      "headers": {
-        "Accept-Encoding": "br, gzip, deflate"
-      }
+      "pattern": "^https://nodejs\\.org/"
+    },
+    {
+      "pattern": "^https://www\\.npmjs\\.com/"
+    },
+    {
+      "pattern": "^https://news\\.ycombinator\\.com/"
+    },
+    {
+      "pattern": "^https://musl\\.libc\\.org/"
+    },
+    {
+      "pattern": "^https://www\\.etalabs\\.net/"
+    },
+    {
+      "pattern": "^https://sourceware\\.org/"
+    },
+    {
+      "pattern": "^https://openjs-foundation\\.slack\\.com/"
     }
   ]
 }

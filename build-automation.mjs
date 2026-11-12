@@ -1,105 +1,150 @@
-import { promisify } from "util";
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { exportVariable } from '@actions/core';
 
-import child_process from "child_process";
+const supportedVersions = JSON.parse(readFileSync('versions.json'));
 
-const exec = promisify(child_process.exec);
+const nodeKeys = readFileSync(resolve(import.meta.dirname, 'keys', 'node.keys'))
+  .toString()
+  .trim()
+  .split('\n');
 
-// a function that queries the Node.js release website for new versions,
-// compare the available ones with the ones we use in this repo
-// and returns whether we should update or not
-const checkIfThereAreNewVersions = async (github) => {
-  try {
-    const { stdout: versionsOutput } = await exec(". ./functions.sh && get_versions", { shell: "bash" });
+const updatedVersions = [];
 
-    const supportedVersions = versionsOutput.trim().split(" ");
+try {
+  console.log(
+    `Found major versions in versions.json: ${Object.keys(supportedVersions).join(', ')}`,
+  );
 
-    let latestSupportedVersions = {};
+  console.log('Grabbing Index.json files');
+  const availableVersions = await fetch(
+    'https://nodejs.org/download/release/index.json',
+  );
+  const officialIndexJson = await availableVersions.json();
 
-    for (let supportedVersion of supportedVersions) {
-      const { stdout } = await exec(`ls ${supportedVersion}`);
+  for (let supportedVersion in supportedVersions) {
+    console.log(`Checking for updates for ${supportedVersion}`);
+    let latestVersion = officialIndexJson.find((indexVersion) =>
+      indexVersion.version.startsWith(`v${supportedVersion}`),
+    );
 
-      const { stdout: fullVersionOutput } = await exec(`. ./functions.sh && get_full_version ./${supportedVersion}/${stdout.trim().split("\n")[0]}`, { shell: "bash" });
+    console.log(`\tLatest version: ${latestVersion.version}
+\tReleased: ${latestVersion.date}
+\tSecurity release: ${latestVersion.security}`);
 
-      console.log(fullVersionOutput);
+    for (let variant in supportedVersions[supportedVersion].variants) {
+      const dockerfilePath = join('.', supportedVersion, variant, 'Dockerfile');
+      const currentDockerfile = readFileSync(dockerfilePath, 'utf-8');
 
-      latestSupportedVersions[supportedVersion] = { fullVersion: fullVersionOutput.trim() };
-    }
+      const localVersion =
+        'v' +
+        currentDockerfile.match(/NODE_VERSION=(?<version>\d*\.\d*\.\d)/).groups[
+          'version'
+        ];
 
-    const { data: availableVersionsJson } = await github.request('https://nodejs.org/download/release/index.json');
+      const arches = supportedVersions[supportedVersion].variants[variant];
 
-    // filter only more recent versions of availableVersionsJson for each major version in latestSupportedVersions' keys
-    // e.g. if latestSupportedVersions = { "12": "12.22.10", "14": "14.19.0", "16": "16.14.0", "17": "17.5.0" }
-    // and availableVersions = ["Node.js 12.22.10", "Node.js 12.24.0", "Node.js 14.19.0", "Node.js 14.22.0", "Node.js 16.14.0", "Node.js 16.16.0", "Node.js 17.5.0", "Node.js 17.8.0"]
-    // return { "12": "12.24.0", "14": "14.22.0", "16": "16.16.0", "17": "17.8.0" }
+      let baseImage;
+      let archString = '';
+      let dockerfileTemplate;
+      if (variant.startsWith('alpine')) {
+        dockerfileTemplate = readFileSync(
+          resolve(import.meta.dirname, 'Dockerfile-alpine.template'),
+        ).toString();
 
-    let filteredNewerVersions = {};
-
-    for (let availableVersion of availableVersionsJson) {
-      const [availableMajor, availableMinor, availablePatch] = availableVersion.version.split("v")[1].split(".");
-      if (latestSupportedVersions[availableMajor] == null) {
-        continue;
-      }
-      const [_latestMajor, latestMinor, latestPatch] = latestSupportedVersions[availableMajor].fullVersion.split(".");
-      if (latestSupportedVersions[availableMajor] && (Number(availableMinor) > Number(latestMinor) || (availableMinor === latestMinor && Number(availablePatch) > Number(latestPatch)))) {
-        filteredNewerVersions[availableMajor] = { fullVersion: `${availableMajor}.${availableMinor}.${availablePatch}` };
-      }
-    }
-
-    return {
-      shouldUpdate: Object.keys(filteredNewerVersions).length > 0 && JSON.stringify(filteredNewerVersions) !== JSON.stringify(latestSupportedVersions),
-      versions: filteredNewerVersions,
-    }
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  }
-};
-
-// a function that queries the Node.js unofficial release website for new musl versions and security releases,
-// and returns relevant information
-const checkForMuslVersionsAndSecurityReleases = async (github, versions) => {
-  try {
-    const { data: unofficialBuildsIndexText } = await github.request('https://unofficial-builds.nodejs.org/download/release/index.json');
-
-    for (let version of Object.keys(versions)) {
-      const { data: unofficialBuildsWebsiteText } = await github.request(`https://unofficial-builds.nodejs.org/download/release/v${versions[version].fullVersion}`);
-
-      versions[version].muslBuildExists = unofficialBuildsWebsiteText.includes("musl");
-      versions[version].isSecurityRelease = unofficialBuildsIndexText.find(indexVersion => indexVersion.version === `v${versions[version].fullVersion}`)?.security;
-    }
-    return versions;
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  }
-};
-
-export default async function(github) {
-// if there are no new versions, exit gracefully
-// if there are new versions,
-// check for musl builds
-// then run update.sh
-  const { shouldUpdate, versions } = await checkIfThereAreNewVersions(github);
-
-  if (!shouldUpdate) {
-    console.log("No new versions found. No update required.");
-    process.exit(0);
-  } else {
-    const newVersions = await checkForMuslVersionsAndSecurityReleases(github, versions);
-    let updatedVersions = [];
-    for (let version of Object.keys(newVersions)) {
-      if (newVersions[version].muslBuildExists) {
-        const { stdout } = await exec(`./update.sh ${newVersions[version].isSecurityRelease ? "-s " : ""}${version}`);
-        console.log(stdout);
-        updatedVersions.push(newVersions[version].fullVersion);
+        baseImage = `alpine:${variant.replace(/alpine/, '')}`;
+        if (arches.includes('amd64'))
+          archString += `x86_64) ARCH='x64' OPENSSL_ARCH=linux-x86_64;; \\\n        `;
+        if (arches.includes('arm64v8'))
+          archString += `aarch64) OPENSSL_ARCH=linux-aarch64;; \\\n        `;
+        if (arches.includes('arm32v6') || arches.includes('arm32v7'))
+          archString += `arm*) OPENSSL_ARCH=linux-armv4;; \\\n        `;
+        if (arches.includes('ppc64le'))
+          archString += `ppc64le) OPENSSL_ARCH=linux-ppc64le;; \\\n        `;
+        if (arches.includes('s390x'))
+          archString += `s390x) OPENSSL_ARCH=linux-s390x;; \\\n        `;
+        archString += '*) echo "unsupported architecture"; exit 1 ;; \\';
+      } else if (variant.endsWith('-slim')) {
+        dockerfileTemplate = readFileSync(
+          resolve(import.meta.dirname, 'Dockerfile-slim.template'),
+        ).toString();
+        baseImage = `debian:${variant}`;
+        if (arches.includes('amd64'))
+          archString += `amd64) ARCH='x64' OPENSSL_ARCH='linux-x86_64';; \\\n      `;
+        if (arches.includes('ppc64le'))
+          archString += `ppc64el) ARCH='ppc64le' OPENSSL_ARCH='linux-ppc64le';; \\\n      `;
+        if (arches.includes('s390x'))
+          archString += `s390x) ARCH='s390x' OPENSSL_ARCH='linux*-s390x';; \\\n      `;
+        if (arches.includes('arm64v8'))
+          archString += `arm64) ARCH='arm64' OPENSSL_ARCH='linux-aarch64';; \\\n      `;
+        if (arches.includes('arm32v7'))
+          archString += `armhf) ARCH='armv7l' OPENSSL_ARCH='linux-armv4';; \\\n      `;
+        archString += '*) echo "unsupported architecture"; exit 1 ;; \\';
       } else {
-        console.log(`There's no musl build for version ${newVersions[version].fullVersion} yet.`);
-        process.exit(0);
+        dockerfileTemplate = readFileSync(
+          resolve(import.meta.dirname, 'Dockerfile-debian.template'),
+        ).toString();
+        baseImage = `buildpack-deps:${variant}`;
+        if (arches.includes('amd64'))
+          archString += `amd64) ARCH='x64';; \\\n    `;
+        if (arches.includes('ppc64le'))
+          archString += `ppc64el) ARCH='ppc64le';; \\\n    `;
+        if (arches.includes('s390x'))
+          archString += `s390x) ARCH='s390x';; \\\n    `;
+        if (arches.includes('arm64v8'))
+          archString += `arm64) ARCH='arm64';; \\\n    `;
+        if (arches.includes('arm32v7'))
+          archString += `armhf) ARCH='armv7l';; \\\n    `;
+        archString += '*) echo "unsupported architecture"; exit 1 ;; \\';
+      }
+
+      let dockerfileOutput = dockerfileTemplate
+        .replace(/^FROM.+$/m, `FROM ${baseImage}`)
+        .replace(
+          /^ENV NODE_VERSION=.+$/m,
+          `ENV NODE_VERSION=${latestVersion.version.substring(1)}`,
+        )
+        .replace(
+          /^(\s*)"\${NODE_KEYS\[@]}".*$/m,
+          ((keys) => keys.map((key) => `$1${key} \\`).join('\n'))(nodeKeys),
+        )
+        .replace(/"\$\{SUPPORTED_ARCH\[@\]\}"/s, archString);
+
+      if (parseInt(supportedVersion, 10) >= 26) {
+        dockerfileOutput = dockerfileOutput.replace(
+          /ENV YARN_VERSION.*\*\n/s,
+          '',
+        );
+      } else {
+        // Strip out rust and cargo packages for Node.js < 26
+        dockerfileOutput = dockerfileOutput.replace(
+          /\s{4}rust \\.*cargo \\\s*/s,
+          '',
+        );
+      }
+      if (dockerfileOutput === currentDockerfile) {
+        console.log(`\t${variant}: everything up to date!`);
+      } else if (latestVersion.version !== localVersion) {
+        console.log(`\t${variant}: updating to ${latestVersion.version}`);
+        updatedVersions.push(latestVersion.version);
+        writeFileSync(dockerfilePath, dockerfileOutput);
+      } else {
+        console.warn(
+          `\t${variant}: non-version changes detected, but file not updated.`,
+        );
       }
     }
-    const { stdout } = (await exec(`git diff`));
-    console.log(stdout);
-
-    return updatedVersions.join(', ');
   }
+  if (updatedVersions.length !== 0) {
+    // Let the GitHub Action library set the GITHUB_ENV file rather than manually handling it
+    exportVariable(
+      'NODE_PR_TITLE',
+      `feat: Node.js ${[...new Set(updatedVersions)].join(', ')}`,
+    );
+  } else {
+    console.log('No Pull Request will be created.');
+  }
+} catch (error) {
+  console.error(error);
+  process.exit(1);
 }
